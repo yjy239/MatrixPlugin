@@ -1,0 +1,18 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.yjy.matrixplugin" >
+
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+
+    <application>
+        <activity android:name=".component.IssuesListActivity"
+            android:launchMode="singleTask" />
+
+
+        <provider
+            android:name=".matrixserver.PluginContentProvider"
+            android:authorities="matrixplugin.component.plugin.report"
+            android:process=":report"/>
+
+    </application>
+
+</manifest>
