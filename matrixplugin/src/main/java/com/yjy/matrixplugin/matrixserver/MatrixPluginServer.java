@@ -15,8 +15,10 @@ import com.yjy.matrixplugin.matrixserver.data.EvilMethod;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
@@ -39,14 +41,21 @@ public class MatrixPluginServer extends ParsedBinder implements Runnable{
 
     private static final String TAG = MatrixPluginServer.class.getName();
 
-    private Executor executor = Executors.newSingleThreadExecutor();
+    private Executor executor = Executors.newScheduledThreadPool(1);
 
     private ConcurrentHashMap<Integer,String> mMethodMap = new ConcurrentHashMap<>();
 
 
     Gson gson =  new Gson();
 
-    JsonParser parser = new JsonParser();
+
+    /**
+     * 有两个时机触发任务队列的处理
+     * 1. 没解析完数据，解析完之后
+     * 2.已经解析完数据，立即加入队列开始执行
+     */
+
+    private volatile CopyOnWriteArrayList<Runnable> mEventQueue = new CopyOnWriteArrayList<>();
 
 
     /**
@@ -67,17 +76,15 @@ public class MatrixPluginServer extends ParsedBinder implements Runnable{
         if(PluginReporterListener.METHOD.equals(issue.getTag())){
             String content = issue.getContent();
 
-            //Log.e("content",content);
             EvilMethod method = gson.fromJson(content, EvilMethod.class);
             //异步解析
             String stack = method.getStack();
 
-            //Log.e("stack",stack+" ");
+
             if(mMethodMap.size() > 0){
                 //解析方法栈
                 try {
                     String parsedStack =  parseStack(stack).toString();
-                    //Log.e(TAG,parsedStack+" ");
                     method.setStack(parsedStack);
                     issue.setContent(gson.toJson(method));
                 }catch (Exception e){
@@ -98,10 +105,6 @@ public class MatrixPluginServer extends ParsedBinder implements Runnable{
 
     }
 
-//    private String changeStack(String stack){
-//        parser = new JsonParser();
-//        JsonObject jsonObject = parser.parse(stack).getAsJsonObject();
-//    }
 
     private StringBuilder parseStack(String originTack){
         StringBuilder stringBuilder = new StringBuilder(" ");
@@ -116,11 +119,9 @@ public class MatrixPluginServer extends ParsedBinder implements Runnable{
                 int method = Integer.parseInt(args[1]);
                 boolean isContainKey = mMethodMap.containsKey(method);
                 if (!isContainKey) {
-                    System.out.print("error!!!");
                     continue;
                 }
 
-//
                 args[1] = mMethodMap.get(method);
                 stringBuilder.append(args[0]);
                 stringBuilder.append(",");
